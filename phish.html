@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PhishDetect AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:        #050a0f;
+    --panel:     #0a1520;
+    --border:    #0d3a5c;
+    --accent:    #00d4ff;
+    --accent2:   #ff3c5f;
+    --accent3:   #39ff14;
+    --warn:      #ffb800;
+    --text:      #c8e6f5;
+    --dim:       #4a7a99;
+    --critical:  #ff1744;
+    --high:      #ff6d00;
+    --medium:    #ffd600;
+    --low:       #00e676;
+    --safe:      #00e5ff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Scanline */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -100%;
+    left: 0; right: 0;
+    height: 200%;
+    background: linear-gradient(transparent 50%, rgba(0,212,255,0.012) 50%);
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 0;
+    animation: scanlines 8s linear infinite;
+  }
+  @keyframes scanlines { to { transform: translateY(50%); } }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    padding: 40px 0 32px;
+    animation: fadeDown 0.8s ease both;
+  }
+  @keyframes fadeDown {
+    from { opacity:0; transform:translateY(-20px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  .logo-icon {
+    font-size: 56px;
+    display: block;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 0 20px var(--accent2));
+    animation: pulse-icon 3s ease-in-out infinite;
+  }
+  @keyframes pulse-icon {
+    0%,100% { filter: drop-shadow(0 0 20px var(--accent2)); }
+    50%      { filter: drop-shadow(0 0 40px var(--accent2)) drop-shadow(0 0 80px var(--accent)); }
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(28px, 6vw, 52px);
+    font-weight: 900;
+    letter-spacing: 6px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 60%, var(--warn) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .tagline {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .status-bar {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  .status-pill {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+  .status-pill.online {
+    border-color: var(--accent3);
+    color: var(--accent3);
+    animation: blink 2s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.4; } }
+
+  /* ── API KEY ── */
+  .api-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warn);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    border-radius: 2px;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+  .api-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--warn);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  .api-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .api-input {
+    flex: 1;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    border-radius: 2px;
+    transition: border-color 0.2s;
+  }
+  .api-input:focus { border-color: var(--accent); }
+  .api-input::placeholder { color: var(--dim); }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 0;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+  .tab {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 10px 20px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    color: var(--dim);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 2px 2px 0 0;
+  }
+  .tab:hover { color: var(--accent); border-color: var(--accent); }
+  .tab.active {
+    background: #0d2035;
+    color: var(--accent);
+    border-color: var(--accent);
+    border-bottom: 1px solid #0d2035;
+  }
+
+  /* ── INPUT PANEL ── */
+  .input-panel {
+    background: #0d2035;
+    border: 1px solid var(--accent);
+    border-top: none;
+    padding: 24px;
+    margin-bottom: 24px;
+    border-radius: 0 2px 2px 2px;
+    animation: fadeUp 0.6s 0.35s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(16px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  .field-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  textarea, input[type="text"] {
+    width: 100%;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    padding: 12px 16px;
+    outline: none;
+    border-radius: 2px;
+    transition: border-color 0.2s;
+    resize: vertical;
+  }
+  textarea:focus, input[type="text"]:focus { border-color: var(--accent); }
+  textarea::placeholder, input[type="text"]::placeholder { color: var(--dim); }
+  textarea { min-height: 120px; }
+
+  /* ── ANALYZE BUTTON ── */
+  .analyze-btn {
+    width: 100%;
+    margin-top: 16px;
+    padding: 16px;
+    background: transparent;
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    cursor: pointer;
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+  .analyze-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+    z-index: -1;
+  }
+  .analyze-btn:hover::before { transform: scaleX(1); }
+  .analyze-btn:hover { color: var(--bg); }
+  .analyze-btn:disabled {
+    border-color: var(--dim);
+    color: var(--dim);
+    cursor: not-allowed;
+  }
+  .analyze-btn:disabled::before { display: none; }
+
+  /* ── SCANNING ANIMATION ── */
+  .scanning {
+    text-align: center;
+    padding: 40px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .scan-circle {
+    width: 80px;
+    height: 80px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .scan-text {
+    color: var(--accent);
+    font-size: 13px;
+    letter-spacing: 3px;
+    animation: blink 1s step-end infinite;
+  }
+  .scan-dots::after {
+    content: '';
+    animation: dots 1.5s steps(4,end) infinite;
+  }
+  @keyframes dots {
+    0%   { content: ''; }
+    25%  { content: '.'; }
+    50%  { content: '..'; }
+    75%  { content: '...'; }
+    100% { content: ''; }
+  }
+
+  /* ── RESULT PANEL ── */
+  .result-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    animation: resultReveal 0.5s ease both;
+  }
+  @keyframes resultReveal {
+    from { opacity:0; transform:translateY(20px) scale(0.98); }
+    to   { opacity:1; transform:translateY(0) scale(1); }
+  }
+
+  .result-header {
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .risk-badge {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    padding: 8px 20px;
+    border-radius: 2px;
+    border: 2px solid currentColor;
+  }
+  .risk-CRITICAL { color: var(--critical); background: rgba(255,23,68,0.1); box-shadow: 0 0 20px rgba(255,23,68,0.3); }
+  .risk-HIGH     { color: var(--high);     background: rgba(255,109,0,0.1); box-shadow: 0 0 20px rgba(255,109,0,0.3); }
+  .risk-MEDIUM   { color: var(--medium);   background: rgba(255,214,0,0.1); box-shadow: 0 0 20px rgba(255,214,0,0.2); }
+  .risk-LOW      { color: var(--low);      background: rgba(0,230,118,0.1); box-shadow: 0 0 20px rgba(0,230,118,0.2); }
+  .risk-SAFE     { color: var(--safe);     background: rgba(0,229,255,0.1); box-shadow: 0 0 20px rgba(0,229,255,0.2); }
+  .risk-UNKNOWN  { color: var(--dim);      background: rgba(74,122,153,0.1); }
+
+  .score-meter {
+    text-align: right;
+  }
+  .score-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 36px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .score-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+  }
+
+  .meter-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+    width: 200px;
+  }
+  .meter-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease;
+  }
+
+  .result-body { padding: 24px; }
+
+  .verdict-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: #e8f4ff;
+    margin-bottom: 24px;
+    padding: 14px 18px;
+    background: rgba(0,212,255,0.05);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 2px 2px 0;
+    line-height: 1.5;
+  }
+
+  .section-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .indicators-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 24px;
+  }
+  .indicator-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(255,60,95,0.06);
+    border: 1px solid rgba(255,60,95,0.15);
+    border-radius: 2px;
+    font-size: 13px;
+    line-height: 1.4;
+    animation: slideIn 0.3s ease both;
+  }
+  @keyframes slideIn {
+    from { opacity:0; transform:translateX(-10px); }
+    to   { opacity:1; transform:translateX(0); }
+  }
+  .indicator-bullet { color: var(--accent2); flex-shrink: 0; margin-top: 1px; }
+
+  .explanation-text {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+    margin-bottom: 24px;
+    padding: 14px 18px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 2px;
+  }
+
+  .recs-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .rec-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(57,255,20,0.05);
+    border: 1px solid rgba(57,255,20,0.15);
+    border-radius: 2px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .rec-arrow { color: var(--accent3); flex-shrink: 0; }
+
+  /* ── HISTORY ── */
+  .history-section {
+    margin-top: 32px;
+  }
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    font-size: 13px;
+  }
+  .history-item:hover { border-color: var(--accent); }
+  .h-risk {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    border: 1px solid currentColor;
+    flex-shrink: 0;
+    min-width: 70px;
+    text-align: center;
+  }
+  .h-target { flex: 1; color: var(--text); font-family: 'Share Tech Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .h-score { color: var(--dim); font-family: 'Orbitron', monospace; font-size: 12px; flex-shrink: 0; }
+  .h-time { color: var(--dim); font-size: 11px; flex-shrink: 0; }
+
+  .clear-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  .clear-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .error-box {
+    background: rgba(255,23,68,0.08);
+    border: 1px solid rgba(255,23,68,0.3);
+    color: var(--critical);
+    padding: 16px 20px;
+    border-radius: 2px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* Features heuristics box */
+  .features-toggle {
+    margin-top: 16px;
+  }
+  .features-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 6px 14px;
+    cursor: pointer;
+    border-radius: 2px;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .features-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .features-content {
+    margin-top: 10px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    padding: 14px;
+    border-radius: 2px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    line-height: 1.8;
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  @media (max-width: 600px) {
+    .result-header { flex-direction: column; }
+    .meter-bar { width: 100%; }
+    .score-meter { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <span class="logo-icon">🎣</span>
+    <h1>PHISHDETECT</h1>
+    <p class="tagline">AI-Powered Threat Intelligence System</p>
+    <div class="status-bar">
+      <span class="status-pill online">● AI ENGINE ONLINE</span>
+      <span class="status-pill">CLAUDE SONNET 4</span>
+      <span class="status-pill" id="scanCount">SCANS: 0</span>
+    </div>
+  </header>
+
+  <!-- API KEY -->
+  <div class="api-section">
+    <div class="api-label">⚡ ANTHROPIC API KEY REQUIRED</div>
+    <div class="api-row">
+      <input class="api-input" type="password" id="apiKey"
+             placeholder="sk-ant-api03-..." autocomplete="off"/>
+      <button class="features-btn" onclick="saveKey()">SAVE</button>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--dim);font-family:'Share Tech Mono',monospace;">
+      Get your key at console.anthropic.com · Stored in memory only
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('url',this)">🔗 URL</button>
+    <button class="tab" onclick="switchTab('email',this)">📧 EMAIL</button>
+    <button class="tab" onclick="switchTab('text',this)">💬 MESSAGE</button>
+  </div>
+
+  <!-- INPUT PANEL -->
+  <div class="input-panel">
+    <div id="urlTab">
+      <label class="field-label">// TARGET URL</label>
+      <input type="text" id="urlInput"
+             placeholder="https://suspicious-link.tk/verify-account"
+             onkeydown="if(event.key==='Enter')analyze()"/>
+    </div>
+    <div id="emailTab" style="display:none">
+      <label class="field-label">// PASTE EMAIL CONTENT</label>
+      <textarea id="emailInput" rows="6"
+                placeholder="Paste full email text here (headers + body)..."></textarea>
+    </div>
+    <div id="textTab" style="display:none">
+      <label class="field-label">// SUSPICIOUS MESSAGE / TEXT</label>
+      <textarea id="textInput" rows="4"
+                placeholder="Your account has been suspended. Click here to verify immediately..."></textarea>
+    </div>
+    <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">
+      ▶ RUN PHISH SCAN
+    </button>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="resultArea"></div>
+
+  <!-- HISTORY -->
+  <div class="history-section" id="historySection" style="display:none">
+    <div class="section-title" style="margin-bottom:12px;">
+      SCAN HISTORY
+      <button class="clear-btn" onclick="clearHistory()" style="margin-left:auto;">CLEAR</button>
+    </div>
+    <div id="historyList"></div>
+  </div>
+
+</div>
+
+<script>
+// ─── STATE ───
+let currentTab = 'url';
+let history    = [];
+let scanCount  = 0;
+
+// ─── TAB SWITCH ───
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  ['url','email','text'].forEach(t => {
+    document.getElementById(t+'Tab').style.display = t === tab ? 'block' : 'none';
+  });
+}
+
+function saveKey() {
+  const k = document.getElementById('apiKey').value.trim();
+  if (k) { window._apiKey = k; showToast('API key saved ✓'); }
+}
+
+// ─── FEATURE EXTRACTION ───
+function extractUrlFeatures(url) {
+  const f = {};
+  try {
+    const p = new URL(url);
+    const h = p.hostname;
+    f.scheme        = p.protocol.replace(':','');
+    f.domain        = h;
+    f.path_length   = p.pathname.length;
+    f.has_ip        = /^\d{1,3}(\.\d{1,3}){3}$/.test(h);
+    f.subdomain_cnt = h.split('.').length - 2;
+    f.has_at        = url.includes('@');
+    f.url_length    = url.length;
+    f.suspicious_tld= ['tk','ml','ga','cf','gq','xyz','top','click','loan','work']
+                        .includes(h.split('.').pop());
+    f.has_port      = !!p.port;
+    f.encoded_chars = (url.match(/%/g)||[]).length;
+    f.hyphen_count  = h.split('-').length - 1;
+    f.brand_kws     = ['paypal','amazon','apple','google','microsoft','bank',
+                       'secure','login','verify','account','ebay','netflix']
+                        .filter(k => url.toLowerCase().includes(k));
+  } catch(e) { f.error = e.message; }
+  return f;
+}
+
+function extractTextFeatures(text) {
+  const l = text.toLowerCase();
+  return {
+    word_count:      text.split(/\s+/).length,
+    url_count:       (text.match(/https?:\/\/\S+/g)||[]).length,
+    urgency_words:   ['urgent','immediately','verify now','act now','expire',
+                      'suspended','blocked','confirm','click here']
+                       .filter(w => l.includes(w)),
+    threat_words:    ['legal action','unauthorized','suspicious activity',
+                      'verify your identity'].filter(w => l.includes(w)),
+    cred_request:    ['password','ssn','credit card','pin','bank account']
+                       .filter(w => l.includes(w)),
+    all_caps_count:  (text.match(/\b[A-Z]{3,}\b/g)||[]).length,
+    links:           (text.match(/https?:\/\/\S+/g)||[]).slice(0,3),
+  };
+}
+
+// ─── AI ANALYSIS ───
+async function callClaudeAI(content, type, features) {
+  const apiKey = window._apiKey || document.getElementById('apiKey').value.trim();
+  if (!apiKey) throw new Error('No API key. Enter your Anthropic API key above.');
+
+  const systemPrompt = `You are PhishDetect, an elite cybersecurity AI for phishing detection.
+Analyze the provided content and respond ONLY with a valid JSON object — no markdown, no extra text.
+Schema:
+{
+  "risk_level": "CRITICAL|HIGH|MEDIUM|LOW|SAFE",
+  "risk_score": <0-100>,
+  "verdict": "<one-sentence summary>",
+  "indicators": ["<indicator1>", ...],
+  "explanation": "<2-3 sentence analysis>",
+  "recommendations": ["<action1>", ...]
+}
+Risk levels: CRITICAL(85-100), HIGH(65-84), MEDIUM(35-64), LOW(15-34), SAFE(0-14).`;
+
+  const userMsg = `Analyze this ${type} for phishing:
+
+=== CONTENT ===
+${content.slice(0, 3000)}
+
+=== EXTRACTED FEATURES ===
+${JSON.stringify(features, null, 2)}
+
+Return JSON phishing risk assessment only.`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMsg }]
+    })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API error ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  let raw = data.content[0].text.trim();
+  raw = raw.replace(/^```json\s*|^```\s*|\s*```$/gm, '').trim();
+  return JSON.parse(raw);
+}
+
+// ─── ANALYZE ───
+async function analyze() {
+  let content = '', type = '';
+
+  if (currentTab === 'url') {
+    content = document.getElementById('urlInput').value.trim();
+    type = 'URL';
+  } else if (currentTab === 'email') {
+    content = document.getElementById('emailInput').value.trim();
+    type = 'email';
+  } else {
+    content = document.getElementById('textInput').value.trim();
+    type = 'suspicious message';
+  }
+
+  if (!content) {
+    showError('Please enter content to analyze.');
+    return;
+  }
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.textContent = '⟳ SCANNING...';
+
+  showScanning();
+
+  try {
+    const features = currentTab === 'url'
+      ? extractUrlFeatures(content)
+      : extractTextFeatures(content);
+
+    const result = await callClaudeAI(content, type, features);
+    scanCount++;
+    document.getElementById('scanCount').textContent = `SCANS: ${scanCount}`;
+
+    showResult(result, content, type, features);
+    addHistory(result, content, type);
+  } catch(e) {
+    showError(e.message);
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ RUN PHISH SCAN';
+}
+
+// ─── DISPLAY ───
+function showScanning() {
+  document.getElementById('resultArea').innerHTML = `
+    <div class="scanning">
+      <div class="scan-circle"></div>
+      <div class="scan-text">ANALYZING THREAT<span class="scan-dots"></span></div>
+      <div style="margin-top:8px;color:var(--dim);font-family:'Share Tech Mono',monospace;font-size:11px;">
+        Consulting AI threat intelligence...
+      </div>
+    </div>`;
+}
+
+function riskColor(level) {
+  return { CRITICAL:'var(--critical)', HIGH:'var(--high)',
+           MEDIUM:'var(--medium)', LOW:'var(--low)',
+           SAFE:'var(--safe)', UNKNOWN:'var(--dim)' }[level] || 'var(--dim)';
+}
+
+function showResult(r, target, type, features) {
+  const score   = r.risk_score ?? 0;
+  const level   = r.risk_level || 'UNKNOWN';
+  const color   = riskColor(level);
+  const barW    = Math.max(0, Math.min(100, score));
+  const barClr  = color;
+
+  const indicators = (r.indicators||[]).map((ind,i) =>
+    `<div class="indicator-item" style="animation-delay:${i*0.05}s">
+       <span class="indicator-bullet">⚠</span><span>${ind}</span>
+     </div>`).join('');
+
+  const recs = (r.recommendations||[]).map(rec =>
+    `<div class="rec-item">
+       <span class="rec-arrow">→</span><span>${rec}</span>
+     </div>`).join('');
+
+  const featJson = JSON.stringify(features, null, 2);
+
+  document.getElementById('resultArea').innerHTML = `
+    <div class="result-panel">
+      <div class="result-header">
+        <div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);letter-spacing:2px;margin-bottom:6px;">
+            ${type.toUpperCase()} · ${new Date().toLocaleTimeString()}
+          </div>
+          <div class="risk-badge risk-${level}">${level}</div>
+        </div>
+        <div class="score-meter">
+          <div class="score-num" style="color:${color}">${score}</div>
+          <div class="score-label">RISK SCORE / 100</div>
+          <div class="meter-bar">
+            <div class="meter-fill" style="width:${barW}%;background:${barClr}"></div>
+          </div>
+        </div>
+      </div>
+      <div class="result-body">
+        <div class="verdict-text">${r.verdict || 'No verdict available.'}</div>
+
+        ${indicators ? `
+        <div class="section-title">⚠ THREAT INDICATORS</div>
+        <div class="indicators-grid">${indicators}</div>` : ''}
+
+        ${r.explanation ? `
+        <div class="section-title">🔍 ANALYSIS</div>
+        <div class="explanation-text">${r.explanation}</div>` : ''}
+
+        ${recs ? `
+        <div class="section-title">✅ RECOMMENDATIONS</div>
+        <div class="recs-grid">${recs}</div>` : ''}
+
+        <div class="features-toggle">
+          <button class="features-btn" onclick="toggleFeatures(this)">▶ SHOW EXTRACTED FEATURES</button>
+          <div class="features-content" style="display:none">${featJson}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function showError(msg) {
+  document.getElementById('resultArea').innerHTML = `
+    <div class="error-box">
+      ❌ ERROR: ${msg}
+    </div>`;
+}
+
+function toggleFeatures(btn) {
+  const content = btn.nextElementSibling;
+  const visible = content.style.display !== 'none';
+  content.style.display = visible ? 'none' : 'block';
+  btn.textContent = visible ? '▶ SHOW EXTRACTED FEATURES' : '▼ HIDE FEATURES';
+}
+
+// ─── HISTORY ───
+function addHistory(result, target, type) {
+  history.unshift({ result, target, type, time: new Date().toLocaleTimeString() });
+  if (history.length > 10) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  if (!history.length) { document.getElementById('historySection').style.display='none'; return; }
+  document.getElementById('historySection').style.display='block';
+  document.getElementById('historyList').innerHTML = history.map((h,i) => {
+    const color = riskColor(h.result.risk_level);
+    return `<div class="history-item" onclick="reloadHistory(${i})">
+      <span class="h-risk" style="color:${color};border-color:${color}">${h.result.risk_level}</span>
+      <span class="h-target">${h.target.slice(0,60)}</span>
+      <span class="h-score" style="color:${color}">${h.result.risk_score}</span>
+      <span class="h-time">${h.time}</span>
+    </div>`;
+  }).join('');
+}
+
+function reloadHistory(i) {
+  const h = history[i];
+  const features = h.type === 'URL' ? extractUrlFeatures(h.target) : extractTextFeatures(h.target);
+  showResult(h.result, h.target, h.type, features);
+}
+
+function clearHistory() {
+  history = [];
+  document.getElementById('historySection').style.display='none';
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style, {
+    position:'fixed', bottom:'24px', right:'24px',
+    background:'#0a1520', border:'1px solid var(--accent3)',
+    color:'var(--accent3)', fontFamily:"'Share Tech Mono',monospace",
+    fontSize:'12px', padding:'10px 18px', borderRadius:'2px',
+    zIndex:9999, letterSpacing:'1px',
+    animation:'fadeUp 0.3s ease both'
+  });
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+</script>
+</body>
+</html>
